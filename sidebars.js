@@ -393,6 +393,7 @@ module.exports = {
             'platform-engineers/system-operation/velaql',
             'platform-engineers/x-def-version',
             'platform-engineers/cue/external-packages',
+            'platform-engineers/cue/builtin-utils',
             'platform-engineers/status/definition_health_status'
           ],
         },

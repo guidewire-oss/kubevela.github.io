@@ -7,7 +7,7 @@ You can pick up any of the following ways you're interested to contribute.
 ## Contribute Use cases and Samples
 
 * If you're using KubeVela, the easiest thing to contribute is to [credit the community](https://github.com/kubevela/kubevela/issues/1662).
-* If you are interested, you can also write a [kubevela.io blog](https://kubevela.net/blog) to tell more about the use case.
+* If you are interested, you can also write a [kubevela.io blog](https://kubevela.io/blog) to tell more about the use case.
 * You can also contribute to [KubeVela Official Samples](https://github.com/kubevela/samples).
 
 ## Report bugs
@@ -15,7 +15,7 @@ You can pick up any of the following ways you're interested to contribute.
 Before submitting a new issue, try to make sure someone hasn't already reported the problem.
 Look through the [existing issues](https://github.com/kubevela/kubevela/issues) for similar issues.
 
-Report a bug by submitting a [bug report](https://github.com/kubevela/kubevela/issues/new?assignees=&labels=kind%2Fbug&template=bug_report.md&title=).
+Report a bug by submitting a [bug report](https://github.com/kubevela/kubevela/issues/new?assignees=&labels=type%2Fbug&template=bug_report.yml&title=).
 Make sure that you provide as much information as possible on how to reproduce the bug.
 
 Follow the issue template and add additional information that will help us replicate the problem.
@@ -24,9 +24,10 @@ Follow the issue template and add additional information that will help us repli
 
 If you believe you've found a security vulnerability, please read our [security policy](https://github.com/kubevela/kubevela/blob/master/SECURITY.md) for more details.
 
-## Suggest enhancements
+## Suggest features and enhancements
 
-If you have an idea to improve KubeVela, submit an [feature request](https://github.com/kubevela/kubevela/issues/new?assignees=&labels=kind%2Ffeature&template=feature_request.md&title=%5BFeature%5D).
+If you have an idea for something that doesn't exist yet, submit a [feature request](https://github.com/kubevela/kubevela/issues/new?assignees=&labels=type%2Ffeature&template=feature_request.yml&title=%5BFeature%5D).
+If you want to improve something that's already there, submit an [enhancement request](https://github.com/kubevela/kubevela/issues/new?assignees=&labels=type%2Fenhancement&template=enhancement_request.yml&title=%5BEnhancement%5D).
 
 ## Triage issues
 

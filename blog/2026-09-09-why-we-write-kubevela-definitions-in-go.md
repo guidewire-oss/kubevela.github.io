@@ -401,14 +401,19 @@ package main
 
 import (
     "fmt"
+    "os"
 
     "github.com/oam-dev/kubevela/pkg/definition/defkit"
     _ "github.com/your-org/vela-definitions/components" // side effect: init() -> Register()
 )
 
 func main() {
-    out, _ := defkit.ToJSON()
-    fmt.Println(string(out))
+    out, err := defkit.ToJSON()
+    if err != nil {
+        fmt.Fprintf(os.Stderr, "failed to serialize registry: %v\n", err)
+        os.Exit(1)
+    }
+    fmt.Print(string(out))
 }
 ```
 

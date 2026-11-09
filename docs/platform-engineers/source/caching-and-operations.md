@@ -12,7 +12,7 @@ For each source that a render reads, the controller does this:
 
 1. Compute the cache key from the definition's `$internal` block, the binding's properties, and the context.
 2. Look in the in-memory cache. On a hit, use the value.
-3. Otherwise read the backing `Config`. If it exists and is younger than `storageTTL`, use it and load it into memory.
+3. Otherwise read the Secret backing the cache `Config`. If it exists and is younger than `storageTTL`, use it and load it into memory.
 4. Otherwise run the definition's `template`. On success, write the `Config` and use the value.
 5. If the template fails, apply the [stale-data policy](#when-a-refresh-fails).
 
@@ -21,11 +21,11 @@ Two layers hold the data:
 | Layer | Lives in | Lifetime |
 |---|---|---|
 | In-memory | The controller process, shared by every Application that resolves to the same key | 30s, or `storageTTL` if that is shorter, counted from when the value was loaded. Lost on restart |
-| `Config` | The API server, in the system namespace | Until it is deleted. Survives restarts |
+| `Config` and its Secret | The API server, in the system namespace | Survives restarts. A stale entry that has not been accessed for three times `storageTTL` is garbage-collected |
 
 Entries expire after `storageTTL`, which defaults to `15m`. A shorter value gives fresher data and more external calls. A longer one reduces load but serves older values.
 
-The in-memory layer is checked first and is not re-checked against `storageTTL`. A value that was loaded from its `Config` just before it expired can therefore still be served for up to 30 more seconds (less if `storageTTL` is shorter). Keep that in mind for time-sensitive sources. An expired value is never copied into memory, so a stale entry always goes through the [stale-data policy](#when-a-refresh-fails).
+The in-memory layer does not extend `storageTTL`. A freshly written value is held for the shorter of 30 seconds and `storageTTL`; a value loaded from the API server is held for the shorter of 30 seconds and the time remaining before its persistent expiry. An expired value is never copied into memory, so a stale entry always goes through the [stale-data policy](#when-a-refresh-fails).
 
 When several components in one Application read the same source, the first one fetches and the others hit the cache.
 
@@ -35,7 +35,7 @@ When several components in one Application read the same source, the first one f
 
 | Value | Behavior |
 |---|---|
-| `use-stale` (default) | Serve the last good value and mark the source `Stale`. The controller tries again on each reconcile, and the phase returns to `Resolved` once a refresh succeeds |
+| `use-stale` (default) | Serve the last good value and mark the source `Stale`. Refresh attempts back off from 30 seconds, doubling up to `storageTTL`; the phase returns to `Resolved` once a refresh succeeds |
 | `fail` | Treat the failure like a first load: block the render and show the error |
 
 Use `fail` where an out-of-date value is worse than no value, such as a lookup that grants or denies access. The built-in `vela-app`, `vela-component` and `vela-addon` sources use it, so a health check never reports an old state as current.
@@ -56,7 +56,7 @@ status:
       phase: Resolved
       autoUpdate: true
       resolutions:
-        - storageKey: cluster-lookup-local-049ff91a
+        - storageKey: cluster-lookup-local-f80a79e7bb3a213e
           clusters: [local]
           phase: Resolved
           expiresAt: "2026-08-19T16:30:00Z"
@@ -91,22 +91,25 @@ Cache entries are `Config` objects. Use the `vela config` commands to read them,
 # Per-source phase, and who read each value
 vela status <app> --sources
 
-# List the cache entries of a definition
-vela config list
+# List entries for the current cluster-lookup schema version
+vela config list -t source-cluster-lookup-b2d9405c
 
 # Force a refresh: delete the entry, and the next reconcile runs the template
-vela config delete cluster-lookup-local-049ff91a
+vela config delete cluster-lookup-local-f80a79e7bb3a213e
 ```
 
-Each entry carries labels and annotations that record only its identity, so you can find it with a selector:
+Each entry carries labels and annotations that record its identity and inputs, so you can find it with a selector:
 
 ```yaml
 labels:
   sourcedefinition.oam.dev/name: tenant-lookup
+  sourcedefinition.oam.dev/namespace: vela-system
   sourcedefinition.oam.dev/ctx.cluster: local
 annotations:
   sourcedefinition.oam.dev/key-inputs: '["cluster","namespace"]'
-  sourcedefinition.oam.dev/template-hash: 14f35523
+  sourcedefinition.oam.dev/context: '{"cluster":"local","namespace":"default"}'
+  sourcedefinition.oam.dev/properties: '{"fallback":"unknown"}'
+  sourcedefinition.oam.dev/template-hash: 4593f50ece3f5c52
 ```
 
 The resolved output is deliberately not copied into metadata, because encryption at rest covers a Secret's data and not its labels or annotations.
@@ -122,11 +125,11 @@ After you delete an entry, a failing template leaves nothing to fall back on, an
 | A source is `Failed` with a message about a missing field | The resolved output does not match `schema`. Check the data the definition reads |
 | A source is `Stale` | A refresh is failing. Check the message under `resolutions[]` and whether the data source is reachable |
 | `"source" cannot be read here` | The expression is in a built-in policy or an Application-scoped policy, which can read only `context` |
-| Components are not updated after a source changes | `autoUpdate` is off for the binding and the gate is off, or `publishVersion` pins the Application |
+| Components are not updated after a source changes | `autoUpdate` is off for the binding and the gate is off, or `publishVersion` pins a binding that does not explicitly set `autoUpdate: true` |
 
 ## Security notes
 
-- Binding a definition is what RBAC can see. An application author needs `get` on a SourceDefinition to bind it, and admission checks it with a `SubjectAccessReview`.
+- When the `ValidateDefinitionPermissions` gate is enabled (chart value `authorization.definitionValidationEnabled=true`), an application author needs `get` on a SourceDefinition to bind it, and admission checks it with a `SubjectAccessReview`. This check is disabled by default.
 - Application authors cannot read anything outside a definition's `schema`.
 - Treat a definition's reach as part of its grant. A definition that reads another namespace gives every binder that reach, so keep definitions narrow, and note that `configmap-local` reads only the Application's own namespace for this reason.
 - Status is not a secret store. Mark secret fields `// +sensitive` in the schema, and use `statusPolicy` for values that only the consuming Application considers secret.

@@ -19,7 +19,7 @@ spec:
 
 | Field | Description |
 |---|---|
-| `name` | Local name. Expressions read the source as `source.<name>`. It must be a plain identifier, so no hyphens: write `clusterInfo`, not `cluster-info`. |
+| `name` | Local name. Plain identifiers use `source.<name>`. A name with punctuation uses bracket syntax, for example `source["cluster-info"]`. |
 | `type` | Name of the SourceDefinition. Pin a revision with `type: cluster-config-reader@v1`, see [Versioning](./authoring-source-definition.md#versioning). |
 | `properties` | Inputs for the definition. They can themselves contain expressions that read earlier sources, see [Chain sources](#chain-sources). |
 | `autoUpdate` | Re-dispatch components when the resolved value changes, see [below](#re-dispatch-when-a-value-changes). |
@@ -121,15 +121,15 @@ The Application webhook checks every binding before anything is fetched. Nothing
 | `image: '$(source.catalog.standardLabels)'` | *... is object but ... expects string* |
 | `image: '$(source.catalog.standardLabels)-x'` | *cannot be combined with text* |
 | `image: '$(source.registry.mirror)'`, where `mirror` is optional | *may be absent and feeds required ... guard it with `has(...) ? ... : <fallback>`* |
-| `image: '$(source.registry.nope)'` | *undefined field 'nope'* |
+| `image: '$(source.registry.nope)'` | *path "nope" is not declared in schema of SourceDefinition ...* |
 | `image: '$(parameter.image)'` | *undeclared reference to 'parameter'* |
-| `name: '$(source.my-source.x)'` | a hyphenated binding name is refused where it is declared |
+| `image: '$(source.my-source.x)'` | the dot form parses the hyphens as subtraction; use `$(source["my-source"].x)` |
 
-Admission also checks that the SourceDefinition exists, that your `properties` match its parameters, and, through a `SubjectAccessReview`, that you are allowed to `get` the SourceDefinition you bind.
+Admission also checks that the SourceDefinition exists and that your `properties` match its parameters. When the operator enables the `ValidateDefinitionPermissions` gate (chart value `authorization.definitionValidationEnabled=true`), it also uses a `SubjectAccessReview` to check that you may `get` every SourceDefinition you bind. That permission check is disabled by default.
 
 Admission checks the **type** an expression produces, never the value. A `> 0` bound on a parameter is enforced when the value is rendered, because the value can change on a later reconcile with no admission event to catch it.
 
-Soundness checks run first. Only when they pass does the webhook try a full render, which resolves sources for real. A type error is therefore reported once, against the property that caused it.
+Soundness checks run first. Only when they pass does the webhook try a validation render. That render uses types from each source's schema rather than fetching source values, so a type error is reported once, against the property that caused it, without making an external call.
 
 ## Re-dispatch when a value changes
 
@@ -145,7 +145,7 @@ sources:
     autoUpdate: false     # wait for the next rollout
 ```
 
-If `autoUpdate` is unset, the controller-wide `EnableSourceAutoUpdate` gate decides. An explicit `app.oam.dev/publishVersion` always wins and suppresses the refresh, in both directions, until you change it. Re-dispatch happens on reconcile, so a change can take until the next reconcile to show.
+If `autoUpdate` is unset, the controller-wide `EnableSourceAutoUpdate` gate decides. An `app.oam.dev/publishVersion` pin suppresses that gate-derived default, but an explicit `autoUpdate: true` keeps the binding live under the pin. Re-dispatch happens on reconcile, so a change can take until the next reconcile to show.
 
 ## Control what status records
 
@@ -165,7 +165,7 @@ sources:
 | `maskPaths` | nothing masked beyond `+sensitive` | The path, and anything under it, is reported as `***` |
 | `exposeConsumedValues` | values are exposed | `false` omits `value` entirely and keeps `property` and `sourceAttr` |
 
-The two settings are independent. Neither changes what the workload receives. `status` is not a security boundary: access to the SourceDefinition is.
+The two settings are independent. Neither changes what the workload receives. `status` is not a security boundary. When definition permission validation is enabled, RBAC on the SourceDefinition controls who may bind it; otherwise operators must control Application writes and the controller's own reach.
 
 ## Inspect what happened
 

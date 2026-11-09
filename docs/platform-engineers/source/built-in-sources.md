@@ -69,11 +69,11 @@ Sends a GET request to a URL. The response is parsed when its `Content-Type` is 
 
 Output: `content` (parsed value or string) and `statusCode` (int). Cache: 5m, `use-stale`.
 
-The request is made by the controller process, so the controller needs outbound access to the URL.
+The request is made by the controller process, so the controller needs outbound access to the URL. It is also subject to the controller's outbound HTTP deny policy and, when enabled, private-address blocking.
 
 ## vela-config
 
-Reads a KubeVela Config: its properties, the ConfigTemplate it satisfies, and references to the resources that template produced. Output values are never returned, only their references, and a Config marked sensitive is refused.
+Reads a KubeVela Config: its properties, the ConfigTemplate it satisfies, and references to the resources that template produced. Values of the generated resources are never returned, only their references, and a Config marked sensitive is refused.
 
 | Parameter | Type | Description |
 |---|---|---|

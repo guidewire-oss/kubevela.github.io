@@ -123,7 +123,7 @@ parameter: {
 }
 ```
 
-Values come from `spec.sources[].properties`, which are concrete before the fetch begins. The controller checks that all required parameters are concrete **before** running the template, so a missing input does not cost an HTTP call or an API read.
+Values come from `spec.sources[].properties`. A missing required parameter fails resolution; declare optional inputs with `?` so the template can handle their absence.
 
 ### `output` and `errs`
 
@@ -153,6 +153,7 @@ A template may read only these `context` fields. Reading anything else is reject
 | Trait | `traitType`, plus the component fields |
 | Workflow step | `stepName`, `stepType` |
 | Policy | `policyName`, `policyType` |
+| Published policy data | `custom`, when an Application-scoped policy has published `output.ctx`; because its shape and presence are unknown, reads need a type assertion and a default |
 
 `context.name` is the name of the `spec.sources[]` binding, not the consuming component, so it means the same on every surface.
 
@@ -191,7 +192,7 @@ Admission derives the key again and rejects a definition whose block does not ma
 
 The effective identity of an entry is the readable key plus a hash of the template, the binding's properties, and the context values named by `keyInputs`. Two consequences:
 
-- Editing the template of a definition of any kind stops it from using entries that its previous version wrote. A changed URL behind an unchanged schema cannot serve old data.
+- Editing a SourceDefinition template stops it from using entries that its previous version wrote. A changed URL behind an unchanged schema cannot serve old data.
 - Different properties give different entries, with no work from you.
 
 This design removes a class of bug where a key left out a discriminating input and a second Application received the first one's data.
@@ -208,7 +209,7 @@ SourceDefinitions use the same revision mechanism as other definitions, see [Ver
 Revision names are `<definition>-v<n>` and do not include the kind. Do not give a SourceDefinition the same name as a definition of another kind, such as the built-in `configmap` trait. They would share revision names, and a pin like `configmap@v1` would point at the wrong one. This is why the built-in source is named `configmap-local`.
 :::
 
-Each SourceDefinition also registers its `schema` as a ConfigTemplate, named `<definition>-<schema-hash>`. A new ConfigTemplate appears only when the schema changes, and reverting to an earlier schema reuses the existing one. The current name and hash are recorded in the definition's `status.configTemplateRef`.
+Each SourceDefinition also registers its `schema` as a ConfigTemplate, named `source-<definition>-<first-8-characters-of-schema-hash>`. A new ConfigTemplate appears only when the schema changes, and reverting to an earlier schema reuses the existing one. The current name and full hash are recorded in the definition's `status.configTemplateRef`.
 
 ## Chain definitions
 
